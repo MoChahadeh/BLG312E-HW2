@@ -43,6 +43,10 @@ void* thread_function(void* arg) {
   int ordered_quantity = myargs.product_quantity;
   int product_id = myargs.product_id +1;
 
+  printf("\n----------------\n");
+  printf("Customer %d: -Balance: %d, -Quantity Ordered: %d\n", customer_id, customers[customer_id-1].balance, ordered_quantity);
+  printf("Product %d: -Price: %d, -Quantity in stock: %d\n", product_id, products[product_id-1].price, products[product_id-1].quantity_in_stock);
+
   if(products[product_id-1].quantity_in_stock < ordered_quantity) {
     printf("Customer %d was unable to purchase Product %d because there isn't enough stock\n", customer_id, product_id);
     return NULL;
@@ -50,16 +54,18 @@ void* thread_function(void* arg) {
 
   if(customers[customer_id-1].balance < products[product_id-1].price) {
     printf("Customer %d was unable to purchase Product %d because of insufficient balance\n", customer_id, product_id);
+    return NULL;
   }
 
   pthread_mutex_lock(&product_locks[product_id-1]);
 
-  printf("Customer %d purchased %d of Product %d. Previous Quantity: %d", customer_id, product_id, products[product_id-1].quantity_in_stock);
-  products[product_id].quantity_in_stock -= ordered_quantity;
+  printf("Customer %d purchased %d of Product %d. Previous Quantity: %d", customer_id,ordered_quantity, product_id, products[product_id-1].quantity_in_stock);
+  products[product_id-1].quantity_in_stock -= ordered_quantity;
   printf(", New Quantity: %d.\n", products[product_id-1].quantity_in_stock);
-  sleep(1);
-  pthread_mutex_unlock(&product_locks[product_id-1]);
 
+    sleep(1);
+
+  pthread_mutex_unlock(&product_locks[product_id-1]);
 
   return NULL;
 }
