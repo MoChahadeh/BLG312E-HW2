@@ -4,8 +4,8 @@
 #include <pthread.h>
 #include <time.h>
 
-#define NO_OF_PRODUCTS 10
-#define NO_OF_CUSTOMERS 10
+#define NO_OF_PRODUCTS 6
+#define NO_OF_CUSTOMERS 3
 #define NO_OF_THREADS 3
 
 pthread_mutex_t product_locks[NO_OF_PRODUCTS];
@@ -35,7 +35,7 @@ typedef struct {
 } ThreadArgs;
 
 
-void* thread_function(void* arg) {
+void* order_product(void* arg) {
 
   ThreadArgs* args = (ThreadArgs*) arg;
   ThreadArgs myargs = *args;
@@ -47,17 +47,16 @@ void* thread_function(void* arg) {
   printf("Customer %d: -Balance: %d, -Quantity Ordered: %d\n", customer_id, customers[customer_id-1].balance, ordered_quantity);
   printf("Product %d: -Price: %d, -Quantity in stock: %d\n", product_id, products[product_id-1].price, products[product_id-1].quantity_in_stock);
 
+  pthread_mutex_lock(&product_locks[product_id-1]);
+
   if(products[product_id-1].quantity_in_stock < ordered_quantity) {
     printf("Customer %d was unable to purchase Product %d because there isn't enough stock\n", customer_id, product_id);
-    return NULL;
   }
 
-  if(customers[customer_id-1].balance < products[product_id-1].price) {
+  else if(customers[customer_id-1].balance < products[product_id-1].price) {
     printf("Customer %d was unable to purchase Product %d because of insufficient balance\n", customer_id, product_id);
-    return NULL;
-  }
+  } else {
 
-  pthread_mutex_lock(&product_locks[product_id-1]);
 
   printf("Customer %d purchased %d of Product %d. Previous Quantity: %d", customer_id,ordered_quantity, product_id, products[product_id-1].quantity_in_stock);
   products[product_id-1].quantity_in_stock -= ordered_quantity;
@@ -65,9 +64,17 @@ void* thread_function(void* arg) {
 
     sleep(1);
 
+  }
   pthread_mutex_unlock(&product_locks[product_id-1]);
 
+  free(arg);
   return NULL;
+}
+
+void* order_products(void* arg) {
+
+
+
 }
 
 int main(int argc, char const *argv[]) {
@@ -86,36 +93,10 @@ int main(int argc, char const *argv[]) {
 
   }
 
-  for (int i = 0; i < NO_OF_CUSTOMERS; i++) {
+  customer
 
-    customers[i].customer_id = i+1;
-    customers[i].balance = (rand() % 200) + 1;
 
-  }
 
-  pthread_t mythreads[NO_OF_THREADS];
-
-  for(int i = 0; i < NO_OF_THREADS; i++) {
-
-    int ordered_product = (rand() % NO_OF_PRODUCTS);
-    int ordered_quantity = (rand() % 10) + 1;
-    int customer = (rand() % NO_OF_CUSTOMERS);
-
-    printf("%d %d %d\n", customer+1, ordered_quantity, ordered_product+1);
-
-    ThreadArgs* myargs = malloc(sizeof(ThreadArgs));
-
-    myargs->customer_id = customer;
-    myargs->product_id = ordered_product;
-    myargs->product_quantity = ordered_quantity;
-
-    int rc = pthread_create(&mythreads[i], NULL, thread_function, (void*) myargs);
-    if(rc != 0) {
-      perror("Pthread create");
-      exit(1);
-    }
-
-  }
 
   for(int i = 0; i<NO_OF_THREADS; i++) {
 
