@@ -233,7 +233,6 @@ int main(int argc, char const *argv[]) {
 
       printf("%-15d %-15d \n",  product_id,  quantity);
 
-
     }
 
     sleep(4);
