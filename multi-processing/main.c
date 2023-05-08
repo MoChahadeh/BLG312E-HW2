@@ -83,7 +83,7 @@ void* order_product(shared_data_t *shared_data, void* arg) {
   shared_data->customers[customer_id-1].purchased_items[shared_data->customers[customer_id-1].purchased_items_size][1] = ordered_quantity;
   shared_data->customers[customer_id-1].purchased_items_size++;
 
-  sleep(3);
+  sleep(5);
 
   }
   pthread_mutex_unlock(&(shared_data->product_locks[product_id-1]));
@@ -110,6 +110,8 @@ void* order_products(int shmid, void *arg) {
     order_product(shared_data, (void*) &orders[i]);
 
   }
+
+  printf("Customer %d finished ordering\n", customer_id);
 
 
   return NULL;
@@ -147,25 +149,30 @@ int main(int argc, char const *argv[]) {
 
   for(int i = 0; i<NO_OF_PRODUCTS; i++) {
 
-    printf("Product %d\n", i+1);
     shared_data->products[i].product_id = i+1;
     shared_data->products[i].price = (rand() % 200) + 1;
     shared_data->products[i].quantity_in_stock = (rand() %10) + 1;
+
+    printf("Product %d Price %d Quantity %d  \n", i+1, shared_data->products[i].price, shared_data->products[i].quantity_in_stock);
+
 
     pthread_mutex_init(&(shared_data->product_locks[i]), &mutex_attr);
   }
 
   for(int i = 0; i<NO_OF_CUSTOMERS; i++) {
-    printf("Customer %d\n", i+1);
 
     shared_data->customers[i].customer_id = i+1;
     shared_data->customers[i].balance = (rand() % 200) + 1;
 
+    printf("Customer %d with balance %d\n", i+1, shared_data->customers[i].balance);
+
   }
+
+  int pid;
 
   for(int i = 0; i<NO_OF_CUSTOMERS; i++) {
 
-    int pid = fork();
+    pid = fork();
 
     if(pid < 0) {
       perror(" fork error ");
@@ -174,8 +181,9 @@ int main(int argc, char const *argv[]) {
 
     else if(pid == 0){ // Child Process
 
-      int no_of_orders = rand()%5 + 1;
+      srand(time(NULL));
 
+      int no_of_orders = (rand()%5) + 1;
 
       ThreadArgs* orders = (ThreadArgs*) malloc(no_of_orders*sizeof(ThreadArgs));
 
@@ -183,10 +191,10 @@ int main(int argc, char const *argv[]) {
 
       for(int j = 0; j<no_of_orders; j++) {
 
-        orders[i].customer_id = customer;
-        orders[i].product_id = (rand() % NO_OF_PRODUCTS);
-        orders[i].product_quantity = (rand() % 4) + 1;
-        orders[i].direct = 0;
+        orders[j].customer_id = customer;
+        orders[j].product_id = (rand() % NO_OF_PRODUCTS);
+        orders[j].product_quantity = (rand() % 5) + 1;
+        orders[j].direct = 0;
 
       }
 
@@ -196,7 +204,7 @@ int main(int argc, char const *argv[]) {
       array_args->orders = orders;
       array_args->size =  no_of_orders;
 
-      order_products(shmid, array_args);
+      order_products(shmid, (void *) array_args);
 
       break;
 
@@ -204,16 +212,65 @@ int main(int argc, char const *argv[]) {
 
   }
 
-  int status;
-  for(int i = 0;i <NO_OF_CUSTOMERS; i++) {
-    int pid = wait(&status);
-    printf("Child pid %d finished with status %d\n", pid, status);
+  if(pid == 0) return 0;
+
+
+  for(int i = 0 ; i<NO_OF_CUSTOMERS; i++) {
+    wait(NULL);
   }
 
-  if (shmctl(shmid, IPC_RMID, NULL) == -1) {
-    perror("shmctl error");
-    return 1;
+  printf("\nPress any key to show summaries of customers...\n");
+  getchar();
+
+  printf("\nSUMMARIES:\n");
+  sleep(1);
+
+  for (int i = 0; i<NO_OF_CUSTOMERS; i++) {
+
+    printf("\n----------------\n\nCustomer %d Summary:\n", i+1);
+    sleep(1);
+
+    printf("\nOrdered Products:\n\n");
+    printf("%-15s %-15s \n", "Product ID", "Quantity");
+
+    for(int j = 0; j<shared_data->customers[i].ordered_items_size;j++){
+
+      int product_id = shared_data->customers[i].ordered_items[j][0];
+      int quantity =   shared_data->customers[i].ordered_items[j][1];
+
+      printf("%-15d %-15d \n",  product_id, quantity);
+
+    }
+
+    sleep(2);
+
+    printf("\nPurchased Products:\n\n");
+    printf("%-15s %-15s \n", "Product ID", "Quantity");
+
+    for(int j = 0; j<shared_data->customers[i].purchased_items_size; j++) {
+
+      int product_id = shared_data->customers[i].purchased_items[j][0];
+      int quantity =   shared_data->customers[i].purchased_items[j][1];
+
+      printf("%-15d %-15d \n",  product_id,  quantity);
+
+    }
+
+    sleep(4);
+
   }
+
+  if(shmctl(shmid,IPC_RMID, NULL) == -1) {
+
+    perror("SHMCTL ERROR");
+    exit(1);
+
+  }else {
+    printf("\nmemory destroyed\n");
+  }
+
+  printf("\n\n PROGRAM END \n\n");
+
 
   return 0;
 }
