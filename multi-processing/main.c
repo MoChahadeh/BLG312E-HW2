@@ -7,9 +7,8 @@
 #include <sys/wait.h>
 #include <pthread.h>
 
-#define NO_OF_PRODUCTS 6
-#define NO_OF_CUSTOMERS 10
-#define NO_OF_THREADS 5
+#define NO_OF_PRODUCTS 5
+#define NO_OF_CUSTOMERS 3
 
 struct Product {
   int product_id;
@@ -55,16 +54,16 @@ void order_product(shared_data_t *shared_data, ThreadArgs arg) {
   int product_id = myargs.product_id +1;
   int direct = myargs.direct;
 
-  printf("\nCustomer %d is waiting to lock Product %d\n", customer_id, product_id);
+  printf("Customer %d is waiting to lock Product %d\n", customer_id, product_id);
   pthread_mutex_lock(&(shared_data->product_locks[product_id-1]));
-  printf("\nCustomer %d Acquired a lock on product %d\n", customer_id, product_id);
+  printf("Customer %d Acquired a lock on product %d\n", customer_id, product_id);
 
   shared_data->customers[customer_id-1].ordered_items[shared_data->customers[customer_id-1].ordered_items_size][0] = (int) product_id;
   shared_data->customers[customer_id-1].ordered_items[shared_data->customers[customer_id-1].ordered_items_size][1] = (int) ordered_quantity;
   shared_data->customers[customer_id-1].ordered_items_size++;
 
 
-  printf("Customer %d: -Balance: %d, -Quantity Ordered: %d\nProduct %d: -Price: %d, -Quantity in stock: %d\n", customer_id, shared_data->customers[customer_id-1].balance, ordered_quantity, product_id, shared_data->products[product_id-1].price, shared_data->products[product_id-1].quantity_in_stock);
+  printf("Customer %d (Balance: $%d): Ordered %d of Product %d at Price: $%d per unit, Quantity in stock: %d\n", customer_id, shared_data->customers[customer_id-1].balance, ordered_quantity, product_id, shared_data->products[product_id-1].price, shared_data->products[product_id-1].quantity_in_stock);
 
   if(shared_data->products[product_id-1].quantity_in_stock < ordered_quantity) {
     printf("Customer %d RESULT: Customer %d was unable to purchase Product %d because there isn't enough stock\n",customer_id, customer_id, product_id);
@@ -106,7 +105,7 @@ void order_products(int shmid, ArrayArgs *args) {
   int size = myArgs.size;
   int customer_id = myArgs.customer + 1;
 
-  printf("Customer %d ordered %d orders\n", customer_id, size);
+  printf("Customer %d is ordering %d orders\n", customer_id, size);
 
   for(int i = 0; i<size; i++) {
 
@@ -148,26 +147,31 @@ int main(int argc, char const *argv[]) {
   pthread_mutexattr_setpshared(&mutex_attr, PTHREAD_PROCESS_SHARED);
 
 
+  printf("\n\n--------------------\n\n");
   for(int i = 0; i<NO_OF_PRODUCTS; i++) {
 
     shared_data->products[i].product_id = i+1;
     shared_data->products[i].price = (rand() % 200) + 1;
     shared_data->products[i].quantity_in_stock = (rand() %10) + 1;
 
-    printf("Product %d Price %d Quantity %d  \n", i+1, shared_data->products[i].price, shared_data->products[i].quantity_in_stock);
+    printf("Product %d Price $%d Quantity %d  \n", i+1, shared_data->products[i].price, shared_data->products[i].quantity_in_stock);
 
 
     pthread_mutex_init(&(shared_data->product_locks[i]), &mutex_attr);
   }
+  printf("\n\n--------------------\n\n");
+
 
   for(int i = 0; i<NO_OF_CUSTOMERS; i++) {
 
     shared_data->customers[i].customer_id = i+1;
-    shared_data->customers[i].balance = (rand() % 200) + 1;
+    shared_data->customers[i].balance = (rand() % 500) + 1;
 
-    printf("Customer %d with balance %d\n", i+1, shared_data->customers[i].balance);
+    printf("Customer %d Balance $%d\n", i+1, shared_data->customers[i].balance);
 
   }
+
+  printf("\n\n--------------------\n\n");
 
   int pid;
 
@@ -186,8 +190,7 @@ int main(int argc, char const *argv[]) {
     else if(pid == 0){ // Child Process
 
       srand(time(NULL) ^ (getpid()<<16));
-      int no_of_orders = (rand()%5) + 1;
-      printf("\nthis is a random number: %d\n", rand() % 10);
+      int no_of_orders = (rand()%4) + 1;
 
       ThreadArgs* orders = (ThreadArgs*) malloc(no_of_orders*sizeof(ThreadArgs));
 
@@ -267,10 +270,9 @@ int main(int argc, char const *argv[]) {
 
   }
 
-  printf("\nmemory destroyed\n");
+  printf("\n\n MEMORY DESTROYED \n");
 
   printf("\n\n PROGRAM END \n\n");
-
 
   return 0;
 }
