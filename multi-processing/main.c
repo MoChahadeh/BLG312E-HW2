@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <sys/wait.h>
 #include <pthread.h>
 
 #define NO_OF_PRODUCTS 6
@@ -173,18 +174,18 @@ int main(int argc, char const *argv[]) {
 
     else if(pid == 0){ // Child Process
 
-      printf("child process\n");
       int no_of_orders = rand()%5 + 1;
+
 
       ThreadArgs* orders = (ThreadArgs*) malloc(no_of_orders*sizeof(ThreadArgs));
 
       int customer = i;
 
-      for(int j = 0; j<no_of_orders; i++) {
+      for(int j = 0; j<no_of_orders; j++) {
 
         orders[i].customer_id = customer;
         orders[i].product_id = (rand() % NO_OF_PRODUCTS);
-        orders[i].product_quantity = (rand() % 4 + 1);
+        orders[i].product_quantity = (rand() % 4) + 1;
         orders[i].direct = 0;
 
       }
@@ -203,8 +204,11 @@ int main(int argc, char const *argv[]) {
 
   }
 
-
-
+  int status;
+  for(int i = 0;i <NO_OF_CUSTOMERS; i++) {
+    int pid = wait(&status);
+    printf("Child pid %d finished with status %d\n", pid, status);
+  }
 
   if (shmctl(shmid, IPC_RMID, NULL) == -1) {
     perror("shmctl error");
