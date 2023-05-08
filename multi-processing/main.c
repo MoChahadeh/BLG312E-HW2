@@ -47,16 +47,17 @@ typedef struct {
   int size;
 } ArrayArgs;
 
-void* order_product(shared_data_t *shared_data, void* arg) {
+void order_product(shared_data_t *shared_data, ThreadArgs arg) {
 
-  ThreadArgs* args = (ThreadArgs*) arg;
-  ThreadArgs myargs = *args;
+  ThreadArgs myargs = arg;
   int customer_id = myargs.customer_id + 1;
   int ordered_quantity = myargs.product_quantity;
   int product_id = myargs.product_id +1;
   int direct = myargs.direct;
 
+  printf("\nCustomer %d is waiting to lock Product %d\n", customer_id, product_id);
   pthread_mutex_lock(&(shared_data->product_locks[product_id-1]));
+  printf("\nCustomer %d Acquired a lock on product %d\n", customer_id, product_id);
 
   shared_data->customers[customer_id-1].ordered_items[shared_data->customers[customer_id-1].ordered_items_size][0] = (int) product_id;
   shared_data->customers[customer_id-1].ordered_items[shared_data->customers[customer_id-1].ordered_items_size][1] = (int) ordered_quantity;
@@ -83,22 +84,24 @@ void* order_product(shared_data_t *shared_data, void* arg) {
   shared_data->customers[customer_id-1].purchased_items[shared_data->customers[customer_id-1].purchased_items_size][1] = ordered_quantity;
   shared_data->customers[customer_id-1].purchased_items_size++;
 
-  sleep(5);
+  sleep(6);
 
   }
   pthread_mutex_unlock(&(shared_data->product_locks[product_id-1]));
+  printf("\nCustomer %d released lock on product %d\n", customer_id, product_id);
 
-  if(direct) free(arg);
-  return NULL;
 }
 
-void* order_products(int shmid, void *arg) {
+void order_products(int shmid, ArrayArgs *args) {
 
-  shared_data_t *shared_data = (shared_data_t *) shmat(shmid, NULL, 0);
+  shared_data_t *shared_data_fork = (shared_data_t *) shmat(shmid, NULL, 0);
 
-  ArrayArgs* args = (ArrayArgs*) arg;
+  if(shared_data_fork == (shared_data_t *) -1) {
+    perror("child shmat error");
+    exit(1);
+  }
+
   ArrayArgs myArgs = *args;
-
   ThreadArgs* orders= myArgs.orders;
   int size = myArgs.size;
   int customer_id = myArgs.customer + 1;
@@ -107,20 +110,18 @@ void* order_products(int shmid, void *arg) {
 
   for(int i = 0; i<size; i++) {
 
-    order_product(shared_data, (void*) &orders[i]);
+    order_product(shared_data_fork, orders[i]);
 
   }
 
   printf("Customer %d finished ordering\n", customer_id);
 
 
-  return NULL;
-
 }
 
 int main(int argc, char const *argv[]) {
 
-  srand(time(0));
+  srand(time(NULL));
 
   int shmid;
   shared_data_t *shared_data;
@@ -170,7 +171,10 @@ int main(int argc, char const *argv[]) {
 
   int pid;
 
+  ArrayArgs* all_args = malloc(NO_OF_CUSTOMERS*sizeof(ArrayArgs));
+
   for(int i = 0; i<NO_OF_CUSTOMERS; i++) {
+
 
     pid = fork();
 
@@ -181,9 +185,9 @@ int main(int argc, char const *argv[]) {
 
     else if(pid == 0){ // Child Process
 
-      srand(time(NULL));
-
+      srand(time(NULL) ^ (getpid()<<16));
       int no_of_orders = (rand()%5) + 1;
+      printf("\nthis is a random number: %d\n", rand() % 10);
 
       ThreadArgs* orders = (ThreadArgs*) malloc(no_of_orders*sizeof(ThreadArgs));
 
@@ -198,21 +202,17 @@ int main(int argc, char const *argv[]) {
 
       }
 
-      ArrayArgs* array_args = (ArrayArgs*) malloc(sizeof(ArrayArgs));
+      all_args[i].customer = customer;
+      all_args[i].orders = orders;
+      all_args[i].size =  no_of_orders;
 
-      array_args->customer = customer;
-      array_args->orders = orders;
-      array_args->size =  no_of_orders;
+      order_products(shmid, (void *) &all_args[i]);
 
-      order_products(shmid, (void *) array_args);
-
-      break;
+      exit(0);
 
     } else continue; // parent process
 
   }
-
-  if(pid == 0) return 0;
 
 
   for(int i = 0 ; i<NO_OF_CUSTOMERS; i++) {
@@ -250,7 +250,7 @@ int main(int argc, char const *argv[]) {
     for(int j = 0; j<shared_data->customers[i].purchased_items_size; j++) {
 
       int product_id = shared_data->customers[i].purchased_items[j][0];
-      int quantity =   shared_data->customers[i].purchased_items[j][1];
+      int quantity   = shared_data->customers[i].purchased_items[j][1];
 
       printf("%-15d %-15d \n",  product_id,  quantity);
 
@@ -265,9 +265,9 @@ int main(int argc, char const *argv[]) {
     perror("SHMCTL ERROR");
     exit(1);
 
-  }else {
-    printf("\nmemory destroyed\n");
   }
+
+  printf("\nmemory destroyed\n");
 
   printf("\n\n PROGRAM END \n\n");
 
