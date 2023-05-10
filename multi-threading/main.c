@@ -75,7 +75,7 @@ void* order_product(void* arg) {
 
 
     printf("Customer%d(%d, %d): Success! Previous Quantity: %d. New Quantity: %d \n", customer_id , product_id, ordered_quantity, products[product_id-1].quantity_in_stock, products[product_id-1].quantity_in_stock-ordered_quantity);
-    
+
     products[product_id-1].quantity_in_stock -= ordered_quantity;
 
     customers[customer_id-1].balance -= products[product_id-1].price*ordered_quantity;
@@ -131,90 +131,7 @@ void* order_products(void* arg) {
 
 }
 
-int main(int argc, char const *argv[]) {
-
-  srand(time(NULL));
-
-
-  printf("\n--------------------\n\n");
-  for (int i = 0; i < NO_OF_PRODUCTS; i++) {
-
-
-    products[i].product_id = i+1;
-    products[i].price = (rand() %200) + 1;
-    products[i].quantity_in_stock = (rand() % 10) + 1;
-
-    printf("Product Id: %d, Product Price: $%d, Product Quantity: %d \n", products[i].product_id, products[i].price, products[i].quantity_in_stock);
-
-    pthread_mutex_init(&product_locks[i], NULL);
-
-  }
-
-  printf("\n\n--------------------\n\n");
-  sleep(2);
-
-  for(int i = 0; i< NO_OF_CUSTOMERS; i++) {
-
-    customers[i].customer_id = i+1;
-    customers[i].balance = (rand() %500) +1;
-
-    printf("Customer %d, Balance: $%d\n", customers[i].customer_id, customers[i].balance);
-
-  }
-
-  printf("\n\n--------------------\n\n");
-  sleep(2);
-
-  pthread_t my_threads[NO_OF_CUSTOMERS];
-
-  for(int i = 0; i< NO_OF_CUSTOMERS; i++) {
-
-    int no_of_orders = rand()%4 + 1;
-
-    ThreadArgs* orders = (ThreadArgs*) malloc(no_of_orders*sizeof(ThreadArgs));
-
-    int customer = i;
-
-    for(int i = 0; i<no_of_orders; i++) {
-
-      orders[i].customer_id = customer;
-      orders[i].product_id = (rand() % NO_OF_PRODUCTS);
-      orders[i].product_quantity = (rand() % 4 + 1);
-      orders[i].direct = 0;
-
-    }
-
-    ArrayArgs* array_args = (ArrayArgs*) malloc(sizeof(ArrayArgs));
-
-    array_args->customer = customer;
-    array_args->orders = orders;
-    array_args->size =  no_of_orders;
-
-    int err1 = pthread_create(&my_threads[i], NULL, order_products, (void *) array_args);
-
-    if(err1) {
-      perror("thread create error\n");
-      exit(1);
-    }
-
-
-  }
-
-
-  for(int i = 0; i<NO_OF_CUSTOMERS; i++) {
-
-    int rc = pthread_join(my_threads[i], NULL);
-
-    if(rc != 0) {
-      perror("Pthread join error");
-      exit(1);
-    }
-  }
-
-
-  printf("\nPress Return to show summaries of customers...\n");
-  getchar();
-
+void print_summaries() {
   printf("\nSUMMARIES:\n");
   sleep(1);
 
@@ -265,6 +182,94 @@ int main(int argc, char const *argv[]) {
 
     sleep(1);
   }
+
+}
+
+int main(int argc, char const *argv[]) {
+
+  srand(time(NULL));
+
+
+  printf("\n--------------------\n\n");
+  for (int i = 0; i < NO_OF_PRODUCTS; i++) {
+
+
+    products[i].product_id = i+1;
+    products[i].price = (rand() %200) + 1;
+    products[i].quantity_in_stock = (rand() % 10) + 1;
+
+    printf("Product Id: %d, Product Price: $%d, Product Quantity: %d \n", products[i].product_id, products[i].price, products[i].quantity_in_stock);
+
+    pthread_mutex_init(&product_locks[i], NULL);
+
+  }
+
+  printf("\n\n--------------------\n\n");
+  sleep(2);
+
+  for(int i = 0; i< NO_OF_CUSTOMERS; i++) {
+
+    customers[i].customer_id = i+1;
+    customers[i].balance = (rand() %500) +1;
+
+    printf("Customer %d, Balance: $%d\n", customers[i].customer_id, customers[i].balance);
+
+  }
+
+  printf("\n\n--------------------\n\n");
+  sleep(2);
+
+  pthread_t my_threads[NO_OF_CUSTOMERS];
+
+  for(int i = 0; i< NO_OF_CUSTOMERS; i++) {
+
+    int no_of_orders = rand()%4 + 1;
+
+    ThreadArgs* orders = (ThreadArgs*) malloc(no_of_orders*sizeof(ThreadArgs));
+
+    int customer = i;
+
+    for(int i = 0; i<no_of_orders; i++) { // for loop for creating individual orders
+
+      orders[i].customer_id = customer;
+      orders[i].product_id = (rand() % NO_OF_PRODUCTS);
+      orders[i].product_quantity = (rand() % 4 + 1);
+      orders[i].direct = 0;
+
+    }
+
+    ArrayArgs* array_args = (ArrayArgs*) malloc(sizeof(ArrayArgs)); // parameter that holds all the orders created
+
+    array_args->customer = customer;
+    array_args->orders = orders;
+    array_args->size =  no_of_orders;
+
+    int err1 = pthread_create(&my_threads[i], NULL, order_products, (void *) array_args); // thread creation
+
+    if(err1) {
+      perror("thread create error\n");
+      exit(1);
+    }
+
+
+  }
+
+  // joining threads so that the main thread waits for all threads to finish before continuing.
+  for(int i = 0; i<NO_OF_CUSTOMERS; i++) {
+
+    int rc = pthread_join(my_threads[i], NULL);
+
+    if(rc != 0) {
+      perror("Pthread join error");
+      exit(1);
+    }
+  }
+
+
+  printf("\nPress Return to show summaries of customers...\n");
+  getchar();
+
+  print_summaries(); //function to print summary of customers and products
 
   printf("\n\n PROGRAM END \n\n");
 
