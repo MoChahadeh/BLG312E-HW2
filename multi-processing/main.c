@@ -118,7 +118,7 @@ void order_products(int shmid, ArrayArgs *args) {
 
 }
 
-void print_summaries(shared_data_t shared_data) {
+void print_summaries(shared_data_t *shared_data) {
   printf("\nSUMMARIES:\n");
   sleep(1);
 
@@ -270,7 +270,7 @@ int main(int argc, char const *argv[]) {
       array_args->orders = orders;
       array_args->size =  no_of_orders;
 
-      order_products(shmid, (void *) &array_args);
+      order_products(shmid, array_args);
 
       exit(0);
 
@@ -286,7 +286,7 @@ int main(int argc, char const *argv[]) {
   printf("\nPress any key to show summaries of customers...\n");
   getchar();
 
-  print_summaries();
+  print_summaries(shared_data);
 
   if(shmctl(shmid,IPC_RMID, NULL) == -1) {
 

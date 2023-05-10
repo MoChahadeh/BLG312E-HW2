@@ -210,7 +210,7 @@ int main(int argc, char const *argv[]) {
   for(int i = 0; i< NO_OF_CUSTOMERS; i++) {
 
     customers[i].customer_id = i+1;
-    customers[i].balance = (rand() %500) +1;
+    customers[i].balance = (rand() %200) +1;
 
     printf("Customer %d, Balance: $%d\n", customers[i].customer_id, customers[i].balance);
 
