@@ -93,7 +93,7 @@ void order_product(shared_data_t *shared_data, ThreadArgs arg) {
 
 void order_products(int shmid, ArrayArgs *args) {
 
-  shared_data_t *shared_data_fork = (shared_data_t *) shmat(shmid, NULL, 0);
+  shared_data_t *shared_data_fork = (shared_data_t *) shmat(shmid, NULL, 0); // accessing the shared memory in the child process
 
   if(shared_data_fork == (shared_data_t *) -1) {
     perror("child shmat error");
@@ -115,6 +115,63 @@ void order_products(int shmid, ArrayArgs *args) {
 
   printf("Customer %d finished ordering\n", customer_id);
 
+
+}
+
+void print_summaries(shared_data_t shared_data) {
+  printf("\nSUMMARIES:\n");
+  sleep(1);
+
+  for (int i = 0; i<NO_OF_CUSTOMERS; i++) {
+
+    printf("\n----------------\n\nCustomer %d Summary:\n", i+1);
+    sleep(1);
+
+    printf("\nOrdered Products:\n\n");
+    printf("%-15s %-15s \n", "Product ID", "Quantity");
+
+    for(int j = 0; j<shared_data->customers[i].ordered_items_size;j++){
+
+      int product_id = shared_data->customers[i].ordered_items[j][0];
+      int quantity =   shared_data->customers[i].ordered_items[j][1];
+
+      printf("%-15d %-15d \n",  product_id, quantity);
+
+    }
+
+    sleep(2);
+
+    printf("\nPurchased Products:\n\n");
+    printf("%-15s %-15s \n", "Product ID", "Quantity");
+
+    for(int j = 0; j<shared_data->customers[i].purchased_items_size; j++) {
+
+      int product_id = shared_data->customers[i].purchased_items[j][0];
+      int quantity   = shared_data->customers[i].purchased_items[j][1];
+
+      printf("%-15d %-15d \n",  product_id,  quantity);
+
+    }
+
+    sleep(1);
+
+    printf("Final Balance: $%d\n", shared_data->customers[i].balance);
+
+    sleep(4);
+
+  }
+
+  printf("\n----------------------------\nPRODUCTS:\n");
+
+  sleep(1);
+  for(int i = 0 ;i<NO_OF_PRODUCTS; i++) {
+
+    printf("\nProduct %d Final Quantity: %d\n",i+1,shared_data->products[i].quantity_in_stock);
+
+    sleep(1);
+  }
+
+  printf("\n\n----------------------------\n\n");
 
 }
 
@@ -178,7 +235,6 @@ int main(int argc, char const *argv[]) {
 
   int pid;
 
-  ArrayArgs* all_args = malloc(NO_OF_CUSTOMERS*sizeof(ArrayArgs));
 
   for(int i = 0; i<NO_OF_CUSTOMERS; i++) {
 
@@ -199,7 +255,7 @@ int main(int argc, char const *argv[]) {
 
       int customer = i;
 
-      for(int j = 0; j<no_of_orders; j++) {
+      for(int j = 0; j<no_of_orders; j++) { // for loop for creating individual orders
 
         orders[j].customer_id = customer;
         orders[j].product_id = (rand() % NO_OF_PRODUCTS);
@@ -208,11 +264,13 @@ int main(int argc, char const *argv[]) {
 
       }
 
-      all_args[i].customer = customer;
-      all_args[i].orders = orders;
-      all_args[i].size =  no_of_orders;
+      ArrayArgs* array_args = (ArrayArgs *) malloc(sizeof(ArrayArgs)); // parameter holding array of individual orders
 
-      order_products(shmid, (void *) &all_args[i]);
+      array_args->customer = customer;
+      array_args->orders = orders;
+      array_args->size =  no_of_orders;
+
+      order_products(shmid, (void *) &array_args);
 
       exit(0);
 
@@ -220,7 +278,7 @@ int main(int argc, char const *argv[]) {
 
   }
 
-
+  // waiting for all subprocesses to finish
   for(int i = 0 ; i<NO_OF_CUSTOMERS; i++) {
     wait(NULL);
   }
@@ -228,59 +286,7 @@ int main(int argc, char const *argv[]) {
   printf("\nPress any key to show summaries of customers...\n");
   getchar();
 
-  printf("\nSUMMARIES:\n");
-  sleep(1);
-
-  for (int i = 0; i<NO_OF_CUSTOMERS; i++) {
-
-    printf("\n----------------\n\nCustomer %d Summary:\n", i+1);
-    sleep(1);
-
-    printf("\nOrdered Products:\n\n");
-    printf("%-15s %-15s \n", "Product ID", "Quantity");
-
-    for(int j = 0; j<shared_data->customers[i].ordered_items_size;j++){
-
-      int product_id = shared_data->customers[i].ordered_items[j][0];
-      int quantity =   shared_data->customers[i].ordered_items[j][1];
-
-      printf("%-15d %-15d \n",  product_id, quantity);
-
-    }
-
-    sleep(2);
-
-    printf("\nPurchased Products:\n\n");
-    printf("%-15s %-15s \n", "Product ID", "Quantity");
-
-    for(int j = 0; j<shared_data->customers[i].purchased_items_size; j++) {
-
-      int product_id = shared_data->customers[i].purchased_items[j][0];
-      int quantity   = shared_data->customers[i].purchased_items[j][1];
-
-      printf("%-15d %-15d \n",  product_id,  quantity);
-
-    }
-
-    sleep(1);
-
-    printf("Final Balance: $%d\n", shared_data->customers[i].balance);
-
-    sleep(4);
-
-  }
-
-  printf("\n----------------------------\nPRODUCTS:\n");
-
-  sleep(1);
-  for(int i = 0 ;i<NO_OF_PRODUCTS; i++) {
-
-    printf("\nProduct %d Final Quantity: %d\n",i+1,shared_data->products[i].quantity_in_stock);
-
-    sleep(1);
-  }
-
-  printf("\n\n----------------------------\n\n");
+  print_summaries();
 
   if(shmctl(shmid,IPC_RMID, NULL) == -1) {
 
