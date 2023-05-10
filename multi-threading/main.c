@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <time.h>
+#include <sys/time.h>
 
 #define NO_OF_PRODUCTS 5
 #define NO_OF_CUSTOMERS 3
@@ -61,28 +62,29 @@ void* order_product(void* arg) {
   customers[customer_id-1].ordered_items_size++;
 
 
-  printf("Customer %d (Balance: $%d): Ordered %d of Product %d at Price: $%d per unit, Quantity in stock: %d\n", customer_id, customers[customer_id-1].balance, ordered_quantity, product_id, products[product_id-1].price, products[product_id-1].quantity_in_stock);
 
   if(products[product_id-1].quantity_in_stock < ordered_quantity) {
-    printf("Customer %d RESULT: Customer %d was unable to purchase Product %d because there isn't enough stock\n",customer_id, customer_id, product_id);
+    printf("Customer%d(%d, %d): Fail! Not enough stock. \n", customer_id, product_id, ordered_quantity);
   }
 
   else if(customers[customer_id-1].balance < products[product_id-1].price*ordered_quantity) {
-    printf("Customer %d RESULT: Customer %d was unable to purchase Product %d because of insufficient balance\n",customer_id, customer_id, product_id);
+    printf("Customer%d(%d, %d): Fail! Insufficient Balance. \n", customer_id, product_id, ordered_quantity);
   }
 
   else {
 
 
-  printf("Customer %d RESULT: Customer %d purchased %d of Product %d. Previous Quantity: %d. New Quantity: %d \n", customer_id ,customer_id,ordered_quantity, product_id, products[product_id-1].quantity_in_stock, products[product_id-1].quantity_in_stock-ordered_quantity);
-  products[product_id-1].quantity_in_stock -= ordered_quantity;
+    printf("Customer%d(%d, %d): Success! Previous Quantity: %d. New Quantity: %d \n", customer_id , product_id, ordered_quantity, products[product_id-1].quantity_in_stock, products[product_id-1].quantity_in_stock-ordered_quantity);
+    
+    products[product_id-1].quantity_in_stock -= ordered_quantity;
 
-  customers[customer_id-1].purchased_items[customers[customer_id-1].purchased_items_size][0] = product_id;
-  customers[customer_id-1].purchased_items[customers[customer_id-1].purchased_items_size][1] = ordered_quantity;
-  customers[customer_id-1].purchased_items_size++;
+    customers[customer_id-1].balance -= products[product_id-1].price*ordered_quantity;
+    customers[customer_id-1].purchased_items[customers[customer_id-1].purchased_items_size][0] = product_id;
+    customers[customer_id-1].purchased_items[customers[customer_id-1].purchased_items_size][1] = ordered_quantity;
+    customers[customer_id-1].purchased_items_size++;
 
-  fflush(stdout);
-  sleep(3);
+    fflush(stdout);
+    sleep(3);
 
   }
   pthread_mutex_unlock(&product_locks[product_id-1]);
@@ -142,24 +144,26 @@ int main(int argc, char const *argv[]) {
     products[i].price = (rand() %200) + 1;
     products[i].quantity_in_stock = (rand() % 10) + 1;
 
-    printf("Product Id: %d, Product Price: %d, Product Quantity: %d \n", products[i].product_id, products[i].price, products[i].quantity_in_stock);
+    printf("Product Id: %d, Product Price: $%d, Product Quantity: %d \n", products[i].product_id, products[i].price, products[i].quantity_in_stock);
 
     pthread_mutex_init(&product_locks[i], NULL);
 
   }
 
   printf("\n\n--------------------\n\n");
+  sleep(2);
 
   for(int i = 0; i< NO_OF_CUSTOMERS; i++) {
 
     customers[i].customer_id = i+1;
     customers[i].balance = (rand() %500) +1;
 
-    printf("Customer %d, Balance: %d\n", customers[i].customer_id, customers[i].balance);
+    printf("Customer %d, Balance: $%d\n", customers[i].customer_id, customers[i].balance);
 
   }
 
   printf("\n\n--------------------\n\n");
+  sleep(2);
 
   pthread_t my_threads[NO_OF_CUSTOMERS];
 
@@ -208,7 +212,7 @@ int main(int argc, char const *argv[]) {
   }
 
 
-  printf("\nPress any key to show summaries of customers...\n");
+  printf("\nPress Return to show summaries of customers...\n");
   getchar();
 
   printf("\nSUMMARIES:\n");
@@ -245,8 +249,21 @@ int main(int argc, char const *argv[]) {
 
     }
 
+    sleep(1);
+    printf("\nFinal Balance: $%d\n", customers[i].balance);
+
     sleep(4);
 
+  }
+
+  printf("\n----------------------------\nPRODUCTS:\n");
+
+  sleep(1);
+  for(int i = 0 ;i<NO_OF_PRODUCTS; i++) {
+
+    printf("\nProduct %d Final Quantity: %d\n", i+1 ,products[i].quantity_in_stock);
+
+    sleep(1);
   }
 
   printf("\n\n PROGRAM END \n\n");

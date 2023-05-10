@@ -5,6 +5,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/wait.h>
+#include <sys/time.h>
 #include <pthread.h>
 
 #define NO_OF_PRODUCTS 5
@@ -40,7 +41,6 @@ typedef struct {
 } ThreadArgs;
 
 typedef struct {
-
   int customer;
   ThreadArgs* orders;
   int size;
@@ -63,31 +63,31 @@ void order_product(shared_data_t *shared_data, ThreadArgs arg) {
   shared_data->customers[customer_id-1].ordered_items_size++;
 
 
-  printf("Customer %d (Balance: $%d): Ordered %d of Product %d at Price: $%d per unit, Quantity in stock: %d\n", customer_id, shared_data->customers[customer_id-1].balance, ordered_quantity, product_id, shared_data->products[product_id-1].price, shared_data->products[product_id-1].quantity_in_stock);
-
   if(shared_data->products[product_id-1].quantity_in_stock < ordered_quantity) {
-    printf("Customer %d RESULT: Customer %d was unable to purchase Product %d because there isn't enough stock\n",customer_id, customer_id, product_id);
+    printf("Customer%d(%d, %d): Fail! Not enough stock. \n", customer_id, product_id, ordered_quantity);
+
   }
 
   else if(shared_data->customers[customer_id-1].balance < shared_data->products[product_id-1].price*ordered_quantity) {
-    printf("Customer %d RESULT: Customer %d was unable to purchase Product %d because of insufficient balance\n",customer_id, customer_id, product_id);
+    printf("Customer%d(%d, %d): Fail! Insufficient Balance. \n", customer_id, product_id, ordered_quantity);
   }
 
   else {
 
 
-  printf("Customer %d RESULT: Customer %d purchased %d of Product %d. Previous Quantity: %d. New Quantity: %d \n", customer_id ,customer_id,ordered_quantity, product_id, shared_data->products[product_id-1].quantity_in_stock, shared_data->products[product_id-1].quantity_in_stock-ordered_quantity);
+  printf("Customer%d(%d, %d): Success! Previous Quantity: %d. New Quantity: %d \n",customer_id, product_id, ordered_quantity, shared_data->products[product_id-1].quantity_in_stock, shared_data->products[product_id-1].quantity_in_stock-ordered_quantity);
   shared_data->products[product_id-1].quantity_in_stock -= ordered_quantity;
 
+  shared_data->customers[customer_id-1].balance -= shared_data->products[product_id-1].price*ordered_quantity;
   shared_data->customers[customer_id-1].purchased_items[shared_data->customers[customer_id-1].purchased_items_size][0] = product_id;
   shared_data->customers[customer_id-1].purchased_items[shared_data->customers[customer_id-1].purchased_items_size][1] = ordered_quantity;
   shared_data->customers[customer_id-1].purchased_items_size++;
 
-  sleep(6);
-
+  sleep(3);
   }
+
   pthread_mutex_unlock(&(shared_data->product_locks[product_id-1]));
-  printf("\nCustomer %d released lock on product %d\n", customer_id, product_id);
+  printf("Customer %d released lock on product %d\n", customer_id, product_id);
 
 }
 
@@ -161,17 +161,20 @@ int main(int argc, char const *argv[]) {
   }
   printf("\n\n--------------------\n\n");
 
+  sleep(2);
 
   for(int i = 0; i<NO_OF_CUSTOMERS; i++) {
 
     shared_data->customers[i].customer_id = i+1;
-    shared_data->customers[i].balance = (rand() % 500) + 1;
+    shared_data->customers[i].balance = (rand() % 200) + 1;
 
     printf("Customer %d Balance $%d\n", i+1, shared_data->customers[i].balance);
 
   }
 
   printf("\n\n--------------------\n\n");
+
+  sleep(2);
 
   int pid;
 
@@ -259,9 +262,25 @@ int main(int argc, char const *argv[]) {
 
     }
 
+    sleep(1);
+
+    printf("Final Balance: $%d\n", shared_data->customers[i].balance);
+
     sleep(4);
 
   }
+
+  printf("\n----------------------------\nPRODUCTS:\n");
+
+  sleep(1);
+  for(int i = 0 ;i<NO_OF_PRODUCTS; i++) {
+
+    printf("\nProduct %d Final Quantity: %d\n",i+1,shared_data->products[i].quantity_in_stock);
+
+    sleep(1);
+  }
+
+  printf("\n\n----------------------------\n\n");
 
   if(shmctl(shmid,IPC_RMID, NULL) == -1) {
 
